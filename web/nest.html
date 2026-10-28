@@ -542,7 +542,9 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-bottom-width
       out.innerHTML = ''; issues = gErr.map(m => ({ level: 'error', msg: 'G-code ' + m })).concat(issues);
       renderIssues(); renderTabs(); toast('G-code gagal divalidasi - tidak diekspor'); return;
     }
-    const body = JSON.stringify({ name: 'NESTING_' + id, files: files.map(f => ({ file: f.file, text: f.text, dwg: f.dwg })), report: report(c, id, files) });
+    // nama ZIP menyebut jumlah plat + ukuran, supaya ZIP dari layout lain tidak tertukar
+    const zipName = 'NESTING_' + state.plates.length + 'PLAT_' + Math.round(c.plate_w) + 'x' + Math.round(c.plate_h) + '_' + id;
+    const body = JSON.stringify({ name: zipName, files: files.map(f => ({ file: f.file, text: f.text, dwg: f.dwg })), report: report(c, id, files) });
     out.innerHTML = '<p class="note">Menyimpan ' + files.length + ' DWG lewat AutoCAD… (±5–20 detik per file)</p>';
     let res = null;
     try { res = await fetch('api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }); } catch (e) { res = null; }
@@ -552,8 +554,8 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-bottom-width
       const j = await res.json().catch(() => ({ error: res.statusText }));
       out.innerHTML = '<p class="note" style="color:var(--bad)">DWG gagal: ' + esc(j.error) + '</p>';
     } else {
-      download('NESTING_' + id + '.zip', await res.blob());
-      out.innerHTML = '<p class="note" style="color:var(--ok)">ZIP terunduh (NESTING_' + id + '.zip): ' + files.length + ' pasang file, tiap TXT dengan DWG + DXF bernama sama berisi hanya part-nya (' +
+      download(zipName + '.zip', await res.blob());
+      out.innerHTML = '<p class="note" style="color:var(--ok)">ZIP terunduh (' + esc(zipName) + '.zip): ' + state.plates.length + ' plat → ' + files.length + ' pasang file, tiap TXT dengan DWG + DXF bernama sama berisi hanya part-nya (' +
         esc(files.map(f => f.name).join(', ')) + '). DWG disimpan oleh ' + esc(res.headers.get('X-Dwg-Converter') || 'konverter') + ' (format AutoCAD 2018) dan dicek baca-balik. Layout ' + id + '.</p>';
     }
     const box = document.createElement('div'); box.className = 'files';
