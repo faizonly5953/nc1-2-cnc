@@ -1,5 +1,5 @@
 __pycache__/
 *.pyc
-contoh_output/
+contoh_output*/
 web/.test/
 *.bak
