@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NC1 Auto Nesting</title>
+<style>
+:root {
+  --bg: #f4f3ef; --panel: #fff; --ink: #1d1f22; --muted: #646a72; --line: #d9d6cf; --accent: #e8792b; --accent-ink: #fff;
+  --plate: #eceae4; --plate-line: #8a8f96; --bad: #c8322b; --warn: #b7791f; --ok: #2f8a4c; --sel: #e8792b;
+  --font: "Segoe UI", system-ui, sans-serif; --mono: ui-monospace, Consolas, monospace;
+  --font-body: var(--font); --font-mono: var(--mono); --pierce: #d62728; --sim-bg: #1c2227; --sim-floor: #161b1f;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171a; --panel: #1e2125; --ink: #e8e6e1; --muted: #9aa0a7; --line: #33373d; --plate: #2a2e33; --plate-line: #7d838b;
+    --bad: #f0645c; --warn: #e0a84a; --ok: #5cc27e;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font); }
+header { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; padding: 14px 18px 6px; }
+header h1 { margin: 0; font-size: 22px; }
+header h1 span { color: var(--accent); }
+header a { color: var(--muted); font-size: 13px; }
+.app { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 14px; padding: 8px 18px 18px; }
+@media (max-width: 900px) { .app { grid-template-columns: 1fr; padding: 8px 16px 16px; } }
+.side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.panel h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.drop { border: 2px dashed var(--accent); text-align: center; padding: 16px 12px; cursor: pointer; }
+.drop.over { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.drop small { display: block; color: var(--muted); margin: 4px 0 10px; }
+.btn { font: 600 13px var(--font); padding: 7px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.small { padding: 4px 8px; font-size: 12px; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.fields .full { grid-column: 1 / -1; }
+label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+input, select { width: 100%; font: 13px var(--font); padding: 5px 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--ink); }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th, td { text-align: left; padding: 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.tag { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 9px; white-space: nowrap; }
+.tag.ok { color: var(--ok); border: 1px solid var(--ok); }
+.tag.bad { color: var(--bad); border: 1px solid var(--bad); }
+.main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { font: 600 13px var(--font); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+.tab.on { border-color: var(--accent); box-shadow: inset 0 -3px 0 var(--accent); }
+.tab .bad { color: var(--bad); }
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.toolbar select { width: auto; }
+.toolbar .sp { flex: 1; }
+.lid { font: 12px var(--mono); color: var(--muted); }
+.canvas-wrap { position: relative; height: 62vh; min-height: 380px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: default; }
+[hidden] { display: none !important; }
+.empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 20px; }
+.status { font: 12px var(--mono); color: var(--muted); display: flex; gap: 18px; flex-wrap: wrap; }
+.issues { max-height: 210px; overflow: auto; margin: 0; padding: 0; list-style: none; font-size: 12.5px; }
+.issues li { padding: 4px 6px; border-left: 3px solid var(--line); margin-bottom: 3px; }
+.issues li.error { border-color: var(--bad); }
+.issues li.warn { border-color: var(--warn); }
+.issues li.ok { border-color: var(--ok); }
+.issues li[data-uid] { cursor: pointer; }
+.issues li[data-uid]:hover { background: var(--bg); }
+.files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.note { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+kbd { font: 11px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; }
+.mass td, .mass th { padding: 4px 6px; }
+.mass tfoot td { font-weight: 700; border-bottom: 0; }
+/* simulasi 3D (sim3d.js) */
+.simcard .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.simcard .card-head h3 { margin: 0; font-size: 15px; flex: 1; }
+.sim3d { display: grid; gap: 10px; }
+.sim-stage { position: relative; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--sim-bg); min-height: 260px; }
+.sim-gl canvas { display: block; width: 100%; height: auto; max-width: 100%; touch-action: none; }
+.sim-hud { position: absolute; left: 10px; top: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; pointer-events: none; }
+.sim-hud > * { background: color-mix(in srgb, var(--panel) 86%, transparent); color: var(--ink); border-radius: 5px; padding: 4px 8px; font-size: 12.5px; }
+.sim-status { font-weight: 600; }
+.sim-status[data-state="cut"] { color: var(--accent); }
+.sim-status[data-state="pierce"] { color: var(--pierce); }
+.sim-status[data-state="done"] { color: var(--ok); }
+.sim-pos, .sim-line { font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; }
+.sim-line { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sim-line:empty { display: none; }
+.sim-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; padding: 16px; text-align: center; }
+.sim-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sim-seek { flex: 1 1 200px; min-width: 0; accent-color: var(--accent); }
+.sim-time { font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+.sim-opts { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 13px; color: var(--muted); }
+.sim-opts input[type=number], .sim-opts select { width: auto; }
+.sim-opts input[type=number] { width: 4.8em; }
+.sim-chk { display: inline-flex; gap: 6px; align-items: center; }
+.sim-chk input { width: auto; }
+.sim-views { display: inline-flex; gap: 6px; }
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 6px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>NC1 <span>→</span> Auto Nesting</h1>
+  <a href="index.html">Konversi satu file NC1 →</a>
+</header>
+<div class="app">
+  <aside class="side">
+    <div class="panel drop" id="drop" tabindex="0" role="button" aria-label="Pilih file NC1">
+      <b>Seret file .nc1 ke sini</b>
+      <small>Boleh banyak sekaligus. QTY dibaca dari header tiap file.</small>
+      <button class="btn primary" id="pick" type="button">Pilih file</button>
+      <input type="file" id="file" accept=".nc1" multiple hidden>
+    </div>
+
+    <div class="panel">
+      <h2>Part dari NC1</h2>
+      <table id="types"><thead><tr><th>Part</th><th class="num">Ukuran mm</th><th class="num">QTY</th><th>Status</th></tr></thead><tbody></tbody></table>
+      <p class="note" id="typesNote">Belum ada file.</p>
+    </div>
+
+    <form class="panel" id="cfg" autocomplete="off">
+      <h2>Plat &amp; nesting</h2>
+      <div class="fields">
+        <div><label for="c_pw">Panjang plat X (mm)</label><input id="c_pw" name="plate_w" type="number" min="1" step="1" value="10987"></div>
+        <div><label for="c_ph">Lebar plat Y (mm)</label><input id="c_ph" name="plate_h" type="number" min="1" step="1" value="8016"></div>
+        <div><label for="c_m">Margin tepi (mm)</label><input id="c_m" name="margin" type="number" min="0" step="1" value="15"></div>
+        <div><label for="c_s">Jarak antar part (mm)</label><input id="c_s" name="spacing" type="number" min="0" step="1" value="10"></div>
+        <div class="full"><label for="c_rot">Orientasi boleh</label>
+          <select id="c_rot" name="rotation"><option value="all">0 / 90 / 180 / 270°</option><option value="180">0 / 180° (arah serat tetap)</option><option value="none">Hanya 0°</option></select></div>
+      </div>
+      <h2 style="margin-top:12px">Mesin</h2>
+      <div class="fields">
+        <div class="full"><label for="c_post">Post-processor</label><select id="c_post" name="post"></select></div>
+        <div><label for="c_mode">Koordinat</label><select id="c_mode" name="mode"><option value="G90">G90 absolut</option><option value="G91">G91 relatif</option></select></div>
+        <div><label for="c_kerf">Kerf</label><select id="c_kerf" name="kerf"><option value="G41">G41 (Kerf mesin)</option><option value="NONE">Tanpa</option></select></div>
+        <div><label for="c_li">Lead-in luar (mm)</label><input id="c_li" name="lead_in_outer" type="number" min="0" step="0.5" value="8"></div>
+        <div><label for="c_lo">Lead-out (mm)</label><input id="c_lo" name="lead_out" type="number" min="0" step="0.5" value="5"></div>
+        <div><label for="c_sp">Kecepatan (mm/mnt)</label><input id="c_sp" name="cut_speed" type="number" min="1" step="10" value="360"></div>
+        <div><label for="c_th">Tinggi teks DWG (mm)</label><input id="c_th" name="text_height" type="number" min="1" step="1" value="20"></div>
+      </div>
+      <p class="note">Titik nol G-code = pojok kiri bawah plat (G92X0Y0), sama dengan titik (0,0) plat di kanvas dan DWG.</p>
+      <div style="margin-top:10px"><button class="btn primary" id="run" type="button" disabled>Nesting otomatis</button></div>
+    </form>
+  </aside>
+
+  <section class="main">
+    <div class="panel">
+      <div class="toolbar">
+        <div class="tabs" id="tabs"></div>
+        <span class="sp"></span>
+        <span class="lid" id="lid"></span>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="btn small" id="rot" type="button" disabled title="R">Putar 90°</button>
+      <label for="moveTo" style="margin:0">Pindah ke</label>
+      <select id="moveTo" disabled></select>
+      <button class="btn small" id="free" type="button" disabled>Cari tempat kosong</button>
+      <button class="btn small" id="fit" type="button" title="F">Paskan layar</button>
+      <button class="btn small primary" id="sim" type="button" disabled>Simulasi 3D plat ini</button>
+      <span class="note" style="margin:0">Klik pilih · seret pindah · <kbd>R</kbd> putar · panah geser 1 mm (<kbd>Shift</kbd> 10) · roda zoom · seret area kosong geser layar</span>
+    </div>
+    <div class="canvas-wrap" id="wrap">
+      <canvas id="cv"></canvas>
+      <div class="empty" id="empty">Upload file NC1, atur ukuran plat, lalu klik&nbsp;<b>Nesting otomatis</b>.</div>
+    </div>
+    <div class="status"><span id="sel">Tidak ada part dipilih</span><span id="mouse"></span><span id="plateInfo"></span></div>
+    <section class="panel simcard" id="simcard" hidden>
+      <div class="card-head"><h3 id="simTitle">Simulasi 3D</h3><button type="button" class="btn small" id="simClose">Tutup simulasi</button></div>
+      <div id="simhost"></div>
+      <p class="note" id="simNote"></p>
+    </section>
+    <div class="panel">
+      <h2>Berat &amp; sisa (baja 7.850 kg/m³)</h2>
+      <table class="mass" id="mass"><thead><tr><th>Plat</th><th>Tebal</th><th class="num">Ukuran mm</th><th class="num">Berat plat kg</th><th class="num">Part jadi kg</th><th class="num">Sisa kg</th><th class="num">Sisa %</th></tr></thead><tbody></tbody><tfoot></tfoot></table>
+      <p class="note">Berat = luas × tebal (dari profil NC1, mis. PL20 = 20 mm) × 7.850 kg/m³. Sisa = plat − part jadi, termasuk potongan lubang. Plat dibagi per mutu &amp; tebal: part PL20 tidak pernah dicampur dengan PL12.</p>
+    </div>
+    <div class="panel">
+      <div class="toolbar"><h2 style="margin:0">Validasi</h2><span class="sp"></span>
+        <button class="btn primary" id="export" type="button" disabled>Finalisasi &amp; ekspor DWG + G-code</button></div>
+      <ul class="issues" id="issues"></ul>
+      <div id="out"></div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="core.js"></script>
+<script src="nc1.js"></script>
+<script src="nest.js"></script>
+<script src="sim3d.js"></script>
+<script>
+(function () {
+  'use strict';
+  const N = window.Nest, D = window.Dwg2Cnc, $ = id => document.getElementById(id);
+  const form = $('cfg'), cv = $('cv'), ctx = cv.getContext('2d');
+  const NUMS = ['plate_w', 'plate_h', 'margin', 'spacing', 'lead_in_outer', 'lead_out', 'cut_speed', 'text_height'];
+  const NEST_KEYS = ['plate_w', 'plate_h', 'margin', 'spacing', 'rotation'];
+  const state = { types: [], plates: [], unplaced: [], nestKey: null };
+  let cur = 0, sel = null, view = null, issues = [], typeSeq = 0;
+
+  for (const [k, p] of Object.entries(N.POSTS)) form.elements.post.add(new Option(p.label, k));
+  try { const s = JSON.parse(localStorage.getItem('nc1nest.cfg') || '{}'); for (const k in s) if (form.elements[k]) form.elements[k].value = s[k]; } catch (e) { /* opsional */ }
+
+  function cfg() {
+    const c = Object.assign({}, D.DEFAULTS);
+    for (const el of form.elements) if (el.name) c[el.name] = el.value;
+    for (const k of NUMS) c[k] = parseFloat(c[k]);
+    return c;
+  }
+  const nestKey = c => NEST_KEYS.map(k => c[k]).join('|');
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600); }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmt = (v, d = 0) => v.toLocaleString('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const hue = t => (state.types.indexOf(t) * 67 + 205) % 360;
+
+  // ------------------------------------------------------------ files
+  async function addFiles(list) {
+    const arr = [...list].filter(f => /\.nc1$/i.test(f.name));
+    if (!arr.length) { toast('Pilih file .nc1'); return; }
+    for (const f of arr) {
+      const text = new TextDecoder('windows-1252').decode(await f.arrayBuffer());
+      const t = N.makeType('T' + (++typeSeq), f.name, text);
+      const old = state.types.findIndex(o => o.file === f.name);
+      if (old >= 0) state.types[old] = t; else state.types.push(t);
+    }
+    const names = state.types.map(t => t.name);
+    for (const t of state.types) if (names.filter(n => n === t.name).length > 1 && !t.errors.some(e => /duplikat/.test(e))) { t.errors.push('Nama part duplikat dengan file lain.'); t.valid = false; }
+    renderTypes(); runNest();
+  }
+  $('pick').onclick = e => { e.stopPropagation(); $('file').click(); };
+  $('drop').onclick = () => $('file').click();
+  $('drop').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } };
+  $('file').onchange = e => { addFiles(e.target.files); e.target.value = ''; };
+  const drop = $('drop');
+  ['dragenter', 'dragover'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  document.addEventListener('dragleave', e => { if (!e.relatedTarget) drop.classList.remove('over'); });
+  document.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+
+  function renderTypes() {
+    const tb = $('types').tBodies[0]; tb.innerHTML = '';
+    for (const t of state.types) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td><span class="sw" style="background:hsl(' + hue(t) + ' 55% 55%)"></span>' + esc(t.name) +
+        '<div class="note" style="margin:0">' + esc(t.grade + ' ' + t.profile) + (t.holes.length ? ' · ' + t.holes.length + ' lubang' : '') + '</div></td>' +
+        '<td class="num">' + (t.outer ? fmt(t.w, 1) + ' × ' + fmt(t.h, 1) : '-') + '</td>' +
+        '<td class="num">' + (t.qty > 0 ? t.qty : '?') + '</td>' +
+        '<td>' + (t.valid ? '<span class="tag ok">OK</span>' : '<span class="tag bad" title="' + esc(t.errors.join('\n')) + '">' + t.errors.length + ' error</span>') + '</td>';
+      tb.appendChild(tr);
+    }
+    const ok = state.types.filter(t => t.valid);
+    $('typesNote').textContent = state.types.length
+      ? ok.reduce((a, t) => a + t.qty, 0) + ' part dari ' + ok.length + ' file valid' + (ok.length < state.types.length ? ', ' + (state.types.length - ok.length) + ' file ditolak (lihat Validasi)' : '') + '.'
+      : 'Belum ada file.';
+    $('run').disabled = !ok.length;
+  }
+
+  // ---------------------------------------------------------- nesting
+  function runNest() {
+    const c = cfg();
+    if (!(c.plate_w > 0 && c.plate_h > 0) || !(c.margin >= 0) || !(c.spacing >= 0)) { toast('Ukuran plat / margin / jarak tidak valid'); return; }
+    const r = N.nest(state.types, c);
+    state.plates = r.plates; state.unplaced = r.unplaced; state.nestKey = nestKey(c);
+    cur = 0; sel = null; view = null; changed();
+  }
+  $('run').onclick = runNest;
+  form.addEventListener('input', () => {
+    try { localStorage.setItem('nc1nest.cfg', JSON.stringify(Object.fromEntries([...form.elements].filter(e => e.name).map(e => [e.name, e.value])))); } catch (e) { /* opsional */ }
+    changed();
+  });
+
+  function changed() {
+    const c = cfg();
+    issues = state.types.length ? N.validate(state, c) : [];
+    if (state.plates.length && state.nestKey !== nestKey(c)) issues.unshift({ level: 'error', msg: 'Pengaturan plat/margin/jarak/orientasi berubah setelah nesting. Klik "Nesting otomatis" lagi.' });
+    $('out').innerHTML = '';                               // hasil ekspor lama tidak berlaku lagi
+    if (simPlate) closeSim();                              // simulasi lama tidak cocok lagi dengan layout
+    renderTabs(); renderIssues(); renderSel(); draw();
+  }
+
+  // ------------------------------------------------------------- tabs
+  function renderTabs() {
+    const tabs = $('tabs'); tabs.innerHTML = '';
+    const bad = new Set(issues.filter(i => i.level === 'error' && i.plate !== undefined).map(i => i.plate));
+    state.plates.forEach((pl, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'tab' + (i === cur ? ' on' : '');
+      b.innerHTML = 'Plat ' + (i + 1) + ' · PL' + fmt(N.mass(pl).thickness, 1).replace(/,0$/, '') + ' · ' + pl.insts.length + ' pcs · ' + fmt(N.utilization(pl) * 100, 1) + '%' + (bad.has(i) ? ' <span class="bad">●</span>' : '');
+      b.title = pl.group;
+      b.onclick = () => { cur = i; sel = null; view = null; renderTabs(); renderSel(); draw(); };
+      tabs.appendChild(b);
+    });
+    if (!state.plates.length) tabs.innerHTML = '<span class="note" style="margin:0">Belum ada plat</span>';
+    $('empty').hidden = state.plates.length > 0;
+    $('lid').textContent = state.plates.length ? 'Layout ' + N.layoutId(state) : '';
+    const pl = state.plates[cur];
+    $('plateInfo').textContent = pl ? 'Plat ' + (cur + 1) + ': ' + fmt(pl.w) + ' × ' + fmt(pl.h) + ' mm · ' + pl.group + ' · pemakaian ' + fmt(N.utilization(pl) * 100, 1) + '%' : '';
+    const errs = issues.filter(i => i.level === 'error').length;
+    $('export').disabled = !state.plates.length || errs > 0;
+    $('export').title = errs ? 'Perbaiki ' + errs + ' error dulu' : '';
+    $('sim').disabled = !pl;
+    renderMass();
+  }
+
+  function renderMass() {
+    const tb = $('mass').tBodies[0], tf = $('mass').tFoot; tb.innerHTML = ''; tf.innerHTML = '';
+    const tot = { plate: 0, parts: 0, waste: 0 }, byT = new Map();
+    for (const pl of state.plates) {
+      const m = N.mass(pl);
+      tot.plate += m.plate; tot.parts += m.parts; tot.waste += m.waste;
+      const k = m.thickness; byT.set(k, (byT.get(k) || 0) + 1);
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>Plat ' + (pl.index + 1) + '</td><td>' + fmt(m.thickness, 1).replace(/,0$/, '') + ' mm</td><td class="num">' + fmt(pl.w) + ' × ' + fmt(pl.h) + '</td>' +
+        '<td class="num">' + fmt(m.plate, 1) + '</td><td class="num">' + fmt(m.parts, 1) + '</td><td class="num">' + fmt(m.waste, 1) + '</td><td class="num">' + fmt(m.wastePct * 100, 1) + '%</td>';
+      tb.appendChild(tr);
+    }
+    if (state.plates.length) {
+      tf.innerHTML = '<tr><td colspan="3">Total ' + state.plates.length + ' plat (' + [...byT].map(([t, n]) => n + '× PL' + fmt(t, 1).replace(/,0$/, '')).join(', ') + ')</td>' +
+        '<td class="num">' + fmt(tot.plate, 1) + '</td><td class="num">' + fmt(tot.parts, 1) + '</td><td class="num">' + fmt(tot.waste, 1) + '</td><td class="num">' + fmt(tot.plate ? tot.waste / tot.plate * 100 : 0, 1) + '%</td></tr>';
+    }
+  }
+
+  // ---------------------------------------------------------- simulasi 3D
+  let simPlate = null;
+  function openSim(autoplay) {
+    const pl = state.plates[cur]; if (!pl || !window.Sim3D) return;
+    const c = cfg(), files = N.gcodeForPlate(pl, c, c.post, N.layoutId(state));
+    const lines = files.flatMap(f => f.lines), moves = files.flatMap(f => f.moves);
+    const card = $('simcard'); card.hidden = false;
+    $('simTitle').textContent = 'Simulasi 3D · Plat ' + (pl.index + 1) + ' · ' + pl.group + ' · ' + files.map(f => f.file).join(' + ');
+    const cut = files.reduce((a, f) => a + f.stats.cutLen, 0);
+    $('simNote').textContent = 'Memakai G-code yang sama dengan ekspor (' + files.length + ' file, ' + fmt(cut / 1000, 1) + ' m potong). Tebal plat ' + N.mass(pl).thickness + ' mm dari NC1.' +
+      (issues.some(i => i.level === 'error') ? ' Layout masih punya error: simulasi hanya pratinjau.' : '');
+    window.Sim3D.open($('simhost'), { name: 'Plat ' + (pl.index + 1), lines, moves, thickness: N.mass(pl).thickness, kerf: 1.5, plateSize: [pl.w, pl.h], cutSpeed: c.cut_speed, autoplay });
+    simPlate = pl;
+    card.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  }
+  function closeSim() { if (window.Sim3D) window.Sim3D.close(); $('simcard').hidden = true; $('simhost').innerHTML = ''; simPlate = null; }
+  $('sim').onclick = () => openSim(true);
+  $('simClose').onclick = closeSim;
+
+  function renderIssues() {
+    const ul = $('issues'); ul.innerHTML = '';
+    if (!state.types.length) return;
+    const list = issues.length ? issues : [{ level: 'ok', msg: 'Tidak ada masalah. ' + state.plates.reduce((a, p) => a + p.insts.length, 0) + ' part di ' + state.plates.length + ' plat.' }];
+    for (const it of list) {
+      const li = document.createElement('li');
+      li.className = it.level; li.textContent = (it.level === 'error' ? 'Error: ' : it.level === 'warn' ? 'Peringatan: ' : '') + it.msg;
+      if (it.uid) { li.dataset.uid = it.uid; li.onclick = () => selectUid(it.uid); }
+      ul.appendChild(li);
+    }
+  }
+  function selectUid(uid) {
+    state.plates.forEach((pl, i) => { const f = pl.insts.find(x => x.uid === uid); if (f) { if (cur !== i) view = null; cur = i; sel = f; } });
+    renderTabs(); renderSel(); draw();
+  }
+
+  // ---------------------------------------------------------- selection tools
+  function renderSel() {
+    const has = !!sel;
+    $('rot').disabled = !has || N.rotations(cfg()).length < 2; $('free').disabled = !has; $('moveTo').disabled = !has;
+    const mt = $('moveTo'); mt.innerHTML = '';
+    if (has) {
+      const pl = state.plates[cur], [w, h] = N.dims(sel.type, sel.rot);
+      $('sel').textContent = N.label(sel) + ' · X ' + fmt(sel.x, 1) + ' Y ' + fmt(sel.y, 1) + ' · ' + sel.rot + '° · ' + fmt(w, 1) + ' × ' + fmt(h, 1) + ' mm';
+      mt.add(new Option('Plat ' + (cur + 1) + ' (sekarang)', ''));
+      state.plates.forEach((p, i) => { if (i !== cur && p.group === pl.group) mt.add(new Option('Plat ' + (i + 1), String(i))); });
+      mt.add(new Option('Plat baru', 'new'));
+    } else $('sel').textContent = 'Tidak ada part dipilih';
+  }
+  function rotateSel() {
+    if (!sel) return;
+    const rots = N.rotations(cfg());
+    if (rots.length < 2) { toast('Orientasi dikunci di pengaturan'); return; }
+    const [w0, h0] = N.dims(sel.type, sel.rot);
+    const next = rots[(rots.indexOf(sel.rot) + 1) % rots.length];
+    const [w1, h1] = N.dims(sel.type, next);
+    const pl = state.plates[cur], m = cfg().margin, clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    sel.x = clamp(Math.round(sel.x + w0 / 2 - w1 / 2), m, pl.w - m - w1);   // putar di tengah, tetap di dalam margin
+    sel.y = clamp(Math.round(sel.y + h0 / 2 - h1 / 2), m, pl.h - m - h1);
+    sel.rot = next;
+    changed();
+  }
+  $('rot').onclick = rotateSel;
+  $('free').onclick = () => {
+    const spot = N.findFreeSpot(state.plates[cur], sel, cfg());
+    if (!spot) { toast('Tidak ada tempat kosong di plat ini'); return; }
+    Object.assign(sel, spot); changed();
+  };
+  $('moveTo').onchange = e => {
+    const v = e.target.value; if (!v || !sel) return;
+    const from = state.plates[cur];
+    const to = v === 'new' ? { index: state.plates.length, group: from.group, w: from.w, h: from.h, insts: [] } : state.plates[+v];
+    const spot = N.findFreeSpot(to, sel, cfg());
+    if (!spot) { toast('Tidak muat di plat ' + (to.index + 1)); renderSel(); return; }
+    if (v === 'new') state.plates.push(to);
+    from.insts.splice(from.insts.indexOf(sel), 1); to.insts.push(sel); Object.assign(sel, spot);
+    state.plates = state.plates.filter(p => p.insts.length);                // plat kosong dibuang
+    state.plates.forEach((p, i) => { p.index = i; p.insts.forEach(x => { x.plate = i; }); });
+    cur = sel.plate; view = null; changed();
+  };
+  $('fit').onclick = () => { view = null; draw(); };
+
+  // ------------------------------------------------------------ canvas
+  function fitView(pl) {
+    const r = cv.getBoundingClientRect(), pad = 34;
+    const s = Math.min((r.width - 2 * pad) / pl.w, (r.height - 2 * pad) / pl.h);
+    return { s, ox: (r.width - pl.w * s) / 2, oy: (r.height + pl.h * s) / 2 };
+  }
+  const toScr = p => [view.ox + p[0] * view.s, view.oy - p[1] * view.s];
+  const toWorld = (x, y) => [(x - view.ox) / view.s, (view.oy - y) / view.s];
+
+  function draw() {
+    const r = cv.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, r.width, r.height);
+    const pl = state.plates[cur]; if (!pl) return;
+    if (!view) view = fitView(pl);
+    const c = cfg(), bad = new Set();
+    for (const it of issues) if (it.level === 'error' && it.plate === cur) { if (it.uid) bad.add(it.uid); if (it.uid2) bad.add(it.uid2); }
+    const [x0, y0] = toScr([0, pl.h]);
+    ctx.fillStyle = css('--plate'); ctx.fillRect(x0, y0, pl.w * view.s, pl.h * view.s);
+    ctx.strokeStyle = css('--plate-line'); ctx.lineWidth = 1.2; ctx.strokeRect(x0, y0, pl.w * view.s, pl.h * view.s);
+    ctx.setLineDash([5, 4]); ctx.lineWidth = 0.8;
+    const [mx, my] = toScr([c.margin, pl.h - c.margin]); ctx.strokeRect(mx, my, (pl.w - 2 * c.margin) * view.s, (pl.h - 2 * c.margin) * view.s);
+    ctx.setLineDash([]);
+    const [zx, zy] = toScr([0, 0]);
+    ctx.strokeStyle = css('--ink'); ctx.beginPath(); ctx.moveTo(zx - 8, zy); ctx.lineTo(zx + 8, zy); ctx.moveTo(zx, zy - 8); ctx.lineTo(zx, zy + 8); ctx.stroke();
+    ctx.fillStyle = css('--muted'); ctx.font = '11px ' + css('--font');
+    ctx.fillText('0,0', zx + 4, zy + 14);
+    ctx.textAlign = 'center'; ctx.fillText(fmt(pl.w) + ' mm', x0 + pl.w * view.s / 2, zy + 14);
+    ctx.save(); ctx.translate(x0 - 8, y0 + pl.h * view.s / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(fmt(pl.h) + ' mm', 0, 0); ctx.restore();
+    ctx.textAlign = 'start';
+
+    const ring = (pts, rev) => { (rev ? pts.slice().reverse() : pts).forEach((p, i) => { const q = toScr(p); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.closePath(); };
+    for (const inst of pl.insts) {
+      const g = N.world(inst), h = hue(inst.type), isBad = bad.has(inst.uid), isSel = inst === sel;
+      ctx.beginPath(); ring(g.outer); for (const q of g.inners) ring(q, true);
+      for (const [x, y, rr] of g.holes) { const q = toScr([x, y]); ctx.moveTo(q[0] + rr * view.s, q[1]); ctx.arc(q[0], q[1], rr * view.s, 0, Math.PI * 2, true); }
+      ctx.fillStyle = isBad ? 'rgba(200,50,43,.38)' : 'hsla(' + h + ',55%,55%,.32)'; ctx.fill('evenodd');
+      ctx.lineWidth = isSel ? 2.5 : 1; ctx.strokeStyle = isSel ? css('--sel') : isBad ? css('--bad') : 'hsl(' + h + ',45%,42%)'; ctx.stroke();
+      const bw = (g.bbox[2] - g.bbox[0]) * view.s, bh = (g.bbox[3] - g.bbox[1]) * view.s;
+      const txt = N.label(inst), fs = Math.min(13, bh * 0.3, bw / (txt.length * 0.62));
+      if (fs >= 6) {
+        const q = toScr([(g.bbox[0] + g.bbox[2]) / 2, (g.bbox[1] + g.bbox[3]) / 2]);
+        ctx.font = '600 ' + fs + 'px ' + css('--font'); ctx.fillStyle = css('--ink'); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(txt, q[0], q[1]); ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+      }
+    }
+  }
+
+  function hit(wp) {
+    const pl = state.plates[cur]; if (!pl) return null;
+    for (let i = pl.insts.length - 1; i >= 0; i--) if (N.pointInPoly(wp, N.world(pl.insts[i]).outer)) return pl.insts[i];
+    return null;
+  }
+  let drag = null;
+  cv.addEventListener('pointerdown', e => {
+    if (!state.plates[cur]) return;
+    cv.setPointerCapture(e.pointerId);
+    const wp = toWorld(e.offsetX, e.offsetY), h = hit(wp);
+    if (h) { sel = h; drag = { kind: 'part', dx: wp[0] - h.x, dy: wp[1] - h.y, moved: false }; renderSel(); draw(); }
+    else drag = { kind: 'pan', x: e.offsetX, y: e.offsetY, ox: view.ox, oy: view.oy, moved: false };
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!view) return;
+    const wp = toWorld(e.offsetX, e.offsetY);
+    $('mouse').textContent = 'X ' + fmt(wp[0], 1) + '  Y ' + fmt(wp[1], 1);
+    cv.style.cursor = drag ? 'grabbing' : hit(wp) ? 'move' : 'default';
+    if (!drag) return;
+    if (drag.kind === 'part') {
+      const step = e.altKey ? 0.1 : 1;   // snap 1 mm, Alt = 0,1 mm
+      sel.x = Math.round((wp[0] - drag.dx) / step) * step; sel.y = Math.round((wp[1] - drag.dy) / step) * step;
+      drag.moved = true; renderSel(); draw();
+    } else { view.ox = drag.ox + e.offsetX - drag.x; view.oy = drag.oy + e.offsetY - drag.y; drag.moved = true; draw(); }
+  });
+  cv.addEventListener('pointerup', () => {
+    if (drag && drag.kind === 'part' && drag.moved) changed();
+    else if (drag && drag.kind === 'pan' && !drag.moved && sel) { sel = null; renderSel(); draw(); }
+    drag = null;
+  });
+  cv.addEventListener('wheel', e => {
+    if (!view) return; e.preventDefault();
+    const k = Math.exp(-e.deltaY * 0.0015), wp = toWorld(e.offsetX, e.offsetY);
+    view.s *= k; view.ox = e.offsetX - wp[0] * view.s; view.oy = e.offsetY + wp[1] * view.s; draw();
+  }, { passive: false });
+  document.addEventListener('keydown', e => {
+    if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (e.key === 'f' || e.key === 'F') { view = null; draw(); return; }
+    if (!sel) return;
+    const st = e.shiftKey ? 10 : 1, mv = { ArrowLeft: [-st, 0], ArrowRight: [st, 0], ArrowUp: [0, st], ArrowDown: [0, -st] }[e.key];
+    if (mv) { e.preventDefault(); sel.x += mv[0]; sel.y += mv[1]; changed(); }
+    else if (e.key === 'r' || e.key === 'R') rotateSel();
+    else if (e.key === 'Escape') { sel = null; renderSel(); draw(); }
+  });
+  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { view = null; draw(); }, 120); });
+
+  // ------------------------------------------------------------ export
+  function download(name, data, type) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type })); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  function report(c, id, files) {
+    const sp = c.cut_speed > 0 ? c.cut_speed : 360, L = [];
+    L.push('NC1 AUTO NESTING - LAPORAN', 'Layout ' + id + '   ' + new Date().toLocaleString('id-ID'),
+      'Plat ' + c.plate_w + ' x ' + c.plate_h + ' mm, margin ' + c.margin + ' mm, jarak part ' + c.spacing + ' mm, orientasi ' + c.rotation,
+      'Mesin ' + N.POSTS[c.post].label + ', ' + c.mode + ', kerf ' + c.kerf + ', lead-in ' + c.lead_in_outer + ' mm, lead-out ' + c.lead_out + ' mm',
+      'Tiap file G-code punya DWG/DXF bernama sama (PLAT01A.TXT = PLAT01A.dwg) berisi hanya part file itu.',
+      'Titik nol G-code = pojok kiri bawah plat = titik (0,0) di DWG.', '', 'PART');
+    for (const t of state.types) L.push(t.valid
+      ? '  ' + t.name.padEnd(16) + ' QTY ' + String(t.qty).padStart(4) + '  ' + t.w.toFixed(1) + ' x ' + t.h.toFixed(1) + ' mm  ' + t.grade + ' ' + t.profile + '  (' + t.file + ')'
+      : '  DITOLAK ' + t.name + ' (' + t.file + '): ' + t.errors.join(' '));
+    L.push('', 'PLAT (berat baja ' + N.DENSITY + ' kg/m3, tebal dari profil NC1)');
+    const tot = [0, 0, 0];
+    for (const pl of state.plates) {
+      const m = N.mass(pl); tot[0] += m.plate; tot[1] += m.parts; tot[2] += m.waste;
+      L.push('  Plat ' + (pl.index + 1) + ': ' + pl.w + ' x ' + pl.h + ' x ' + m.thickness + ' mm, ' + pl.insts.length + ' pcs, ' + pl.group + ', pemakaian ' + (N.utilization(pl) * 100).toFixed(1) + '%' +
+        ', plat ' + m.plate.toFixed(1) + ' kg, part ' + m.parts.toFixed(1) + ' kg, sisa ' + m.waste.toFixed(1) + ' kg (' + (m.wastePct * 100).toFixed(1) + '%)');
+    }
+    L.push('  TOTAL: plat ' + tot[0].toFixed(1) + ' kg, part ' + tot[1].toFixed(1) + ' kg, sisa ' + tot[2].toFixed(1) + ' kg (' + (tot[0] ? tot[2] / tot[0] * 100 : 0).toFixed(1) + '%)');
+    L.push('', 'FILE G-CODE (torch di pojok kiri bawah plat sebelum tiap file)');
+    for (const f of files) L.push('  ' + f.file.padEnd(14) + ' plat ' + (f.plate + 1) + ', ' + f.count + ' part, ' + f.stats.lineCount + ' baris, potong ' + (f.stats.cutLen / 1000).toFixed(2) + ' m (~' + Math.round(f.stats.cutLen / sp) + ' mnt), ' + f.stats.pierces + ' tembus');
+    return L.join('\r\n') + '\r\n';
+  }
+  $('export').onclick = async () => {
+    const c = cfg(); changed();
+    if (issues.some(i => i.level === 'error')) { toast('Masih ada error - ekspor dibatalkan'); return; }
+    const id = N.layoutId(state), out = $('out'), btn = $('export');
+    btn.disabled = true; out.innerHTML = '<p class="note">Membuat G-code dan DWG…</p>';
+    await new Promise(r => setTimeout(r, 20));
+    const files = state.plates.flatMap(pl => N.gcodeForPlate(pl, c, c.post, id));
+    const gErr = files.flatMap(f => f.errors);
+    if (gErr.length) {
+      out.innerHTML = ''; issues = gErr.map(m => ({ level: 'error', msg: 'G-code ' + m })).concat(issues);
+      renderIssues(); renderTabs(); toast('G-code gagal divalidasi - tidak diekspor'); return;
+    }
+    const body = JSON.stringify({ name: 'NESTING_' + id, files: files.map(f => ({ file: f.file, text: f.text, dwg: f.dwg })), report: report(c, id, files) });
+    out.innerHTML = '<p class="note">Menyimpan ' + files.length + ' DWG lewat AutoCAD… (±5–20 detik per file)</p>';
+    let res = null;
+    try { res = await fetch('api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }); } catch (e) { res = null; }
+    if (!res || res.status === 404 || res.status === 501) {
+      out.innerHTML = '<p class="note" style="color:var(--bad)">DWG tidak dibuat: ekspor DWG butuh server lokal (BUKA-NESTING.bat). File G-code di bawah tetap valid.</p>';
+    } else if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: res.statusText }));
+      out.innerHTML = '<p class="note" style="color:var(--bad)">DWG gagal: ' + esc(j.error) + '</p>';
+    } else {
+      download('NESTING_' + id + '.zip', await res.blob());
+      out.innerHTML = '<p class="note" style="color:var(--ok)">ZIP terunduh (NESTING_' + id + '.zip): ' + files.length + ' pasang file, tiap TXT dengan DWG + DXF bernama sama berisi hanya part-nya (' +
+        esc(files.map(f => f.name).join(', ')) + '). DWG disimpan oleh ' + esc(res.headers.get('X-Dwg-Converter') || 'konverter') + ' (format AutoCAD 2018) dan dicek baca-balik. Layout ' + id + '.</p>';
+    }
+    const box = document.createElement('div'); box.className = 'files';
+    for (const f of files) { const b = document.createElement('button'); b.className = 'btn small'; b.type = 'button'; b.textContent = f.file + ' · plat ' + (f.plate + 1) + ' · ' + f.count + ' part'; b.onclick = () => download(f.file, f.text, 'text/plain'); box.appendChild(b); }
+    out.appendChild(box);
+    if (files.length > state.plates.length) out.insertAdjacentHTML('beforeend', '<p class="note">Ada plat yang dipecah jadi beberapa file karena batas ' + N.POSTS[c.post].maxLines + ' baris per program mesin. Semua file satu plat memakai titik nol yang sama (pojok plat).</p>');
+    btn.disabled = false;
+    window.__lastExport = { id, files: files.map(f => f.file), ok: !!(res && res.ok) };
+  };
+
+  renderTypes(); changed();
+  window.__nest = { state, addFiles, runNest };   // untuk tes otomatis
+})();
+</script>
+</body>
+</html>

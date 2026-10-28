@@ -1,0 +1,587 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}</style></head><body>
+<title>NC1 ke G-code F2100B</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: workbench strip (drop + settings) on the left, results list on the right; stacks on phones */
+:root {
+  --bg: #eef1f3;
+  --panel: #ffffff;
+  --ink: #1b242c;
+  --muted: #5c6973;
+  --line: #d3dade;
+  --accent: #c8661b;      /* torch flame */
+  --accent-ink: #ffffff;
+  --cut: #1f5fbf;         /* cut path */
+  --rapid: #9aa6ae;
+  --pierce: #d23a2a;
+  --ok: #1f7a4a;
+  --ok-bg: #e2f2e9;
+  --bad: #b3261e;
+  --bad-bg: #fbe5e3;
+  --code-bg: #f5f7f8;
+  --sim-bg: #cfd6db;      /* workshop backdrop behind the 3D table */
+  --sim-floor: #9aa3a9;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12171b; --panel: #1a2126; --ink: #e3e9ed; --muted: #92a0aa; --line: #2c363d;
+    --accent: #e8893a; --accent-ink: #1a1208; --cut: #6aa5ff; --rapid: #56636c; --pierce: #ff6b5a;
+    --ok: #6fd39c; --ok-bg: #173226; --bad: #ff8a80; --bad-bg: #3a1c1a; --code-bg: #141a1e;
+    --sim-bg: #1c2227; --sim-floor: #14191c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12171b; --panel: #1a2126; --ink: #e3e9ed; --muted: #92a0aa; --line: #2c363d;
+  --accent: #e8893a; --accent-ink: #1a1208; --cut: #6aa5ff; --rapid: #56636c; --pierce: #ff6b5a;
+  --ok: #6fd39c; --ok-bg: #173226; --bad: #ff8a80; --bad-bg: #3a1c1a; --code-bg: #141a1e;
+  --sim-bg: #1c2227; --sim-floor: #14191c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 24px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-bottom: 20px; }
+h1 { font: 700 30px/1.1 var(--font-display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.sub { color: var(--muted); margin: 0; max-width: 70ch; }
+.grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.side { display: grid; gap: 16px; min-width: 0; }
+.drop { padding: 22px 18px; text-align: center; border: 2px dashed var(--line); border-radius: 8px; background: var(--panel);
+  cursor: pointer; transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over { border-color: var(--accent); }
+.drop:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.drop b { display: block; font: 600 20px/1.2 var(--font-display); margin-bottom: 4px; }
+.drop small { color: var(--muted); }
+.btn { font: 600 14px/1 var(--font-body); border-radius: 6px; padding: 10px 14px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--ink); cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.06); }
+.drop .btn { margin-top: 12px; }
+.settings { padding: 16px 18px; }
+.settings h2, .howto h2 { font: 600 13px/1 var(--font-display); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 12px; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.f { display: grid; gap: 4px; min-width: 0; }
+.f.full { grid-column: 1 / -1; }
+.f label { font-size: 12.5px; color: var(--muted); }
+.f input, .f select { font: 500 14px var(--font-body); padding: 7px 8px; border: 1px solid var(--line); border-radius: 5px;
+  background: var(--bg); color: var(--ink); width: 100%; min-width: 0; }
+.f input:focus-visible, .f select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.f .unit { font-size: 11.5px; color: var(--muted); }
+.reset { margin-top: 12px; background: none; border: 0; color: var(--muted); font: 13px var(--font-body); cursor: pointer; padding: 0; text-decoration: underline; }
+.howto { padding: 16px 18px; font-size: 14px; }
+.howto ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.howto kbd { font: 500 12px var(--font-mono); background: var(--code-bg); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
+.results { display: grid; gap: 18px; min-width: 0; }
+.card { padding: 16px 18px 18px; min-width: 0; }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
+.card-head h3 { font: 700 22px/1.1 var(--font-display); margin: 0; overflow-wrap: anywhere; }
+.tag { font: 600 11.5px/1 var(--font-body); padding: 5px 8px; border-radius: 999px; letter-spacing: .02em; }
+.tag.ok { background: var(--ok-bg); color: var(--ok); }
+.tag.bad { background: var(--bad-bg); color: var(--bad); }
+.tag.sample { background: var(--code-bg); color: var(--muted); border: 1px solid var(--line); }
+.tag.busy { background: var(--code-bg); color: var(--muted); }
+.meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; margin: 0 0 12px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: 0 0 14px; }
+.stat { background: var(--panel); padding: 8px 10px; }
+.stat dt { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.stat dd { margin: 2px 0 0; font: 600 18px/1.2 var(--font-display); font-variant-numeric: tabular-nums; }
+.body2 { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 1000px) { .body2 { grid-template-columns: minmax(0, 1fr); } }
+.canvas-box { border: 1px solid var(--line); border-radius: 6px; background: var(--bg); min-width: 0; }
+canvas { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; max-width: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); padding: 6px 10px; border-top: 1px solid var(--line); }
+.legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 5px; }
+.legend .c { border-color: var(--cut); }
+.legend .r { border-top: 2px dashed var(--rapid); }
+.legend .p { width: 8px; height: 8px; border: 0; border-radius: 50%; background: var(--pierce); }
+.code { min-width: 0; }
+pre { margin: 0; font: 12.5px/1.55 var(--font-mono); background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px;
+  padding: 10px 12px; max-height: 360px; overflow: auto; }
+pre:focus-visible { outline: 2px solid var(--accent); }
+pre .ln { color: var(--muted); user-select: none; display: inline-block; width: 4.5ch; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
+.note { font-size: 13px; color: var(--muted); }
+.warn { margin-top: 10px; font-size: 13.5px; color: var(--bad); background: var(--bad-bg); border-radius: 6px; padding: 8px 10px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  background: var(--ink); color: var(--bg); padding: 9px 14px; border-radius: 6px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+/* 3D cutting simulation */
+.simcard { padding: 16px 18px 18px; min-width: 0; }
+.simcard .card-head { justify-content: space-between; }
+.sim3d { display: grid; gap: 10px; }
+.sim-stage { position: relative; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--sim-bg); min-height: 260px; }
+.sim-gl canvas { display: block; width: 100%; height: auto; max-width: 100%; aspect-ratio: auto; touch-action: none; }
+.sim-hud { position: absolute; left: 10px; top: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; pointer-events: none; }
+.sim-hud > * { background: color-mix(in srgb, var(--panel) 86%, transparent); color: var(--ink); border-radius: 5px; padding: 4px 8px; font-size: 12.5px; }
+.sim-status { font-weight: 600; }
+.sim-status[data-state="cut"] { color: var(--accent); }
+.sim-status[data-state="pierce"] { color: var(--pierce); }
+.sim-status[data-state="done"] { color: var(--ok); }
+.sim-pos { font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; }
+.sim-line { font: 500 12px var(--font-mono); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sim-line:empty { display: none; }
+.sim-msg[hidden] { display: none; }
+.sim-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; padding: 16px; text-align: center; }
+.sim-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sim-seek { flex: 1 1 200px; min-width: 0; accent-color: var(--accent); }
+.sim-time { font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+.sim-opts { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 13px; color: var(--muted); }
+.sim-opts input[type=number], .sim-opts select { font: 500 13px var(--font-body); padding: 5px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--ink); }
+.sim-opts input[type=number] { width: 4.8em; }
+.sim-chk { display: inline-flex; gap: 6px; align-items: center; }
+.sim-views { display: inline-flex; gap: 6px; }
+.sim-views .btn { padding: 7px 10px; }
+.btn.ghost { background: none; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>NC1 <span>→</span> G-code F2100B</h1>
+    <p class="sub">Upload file DSTV NC1 (plat dari Tekla / nesting), lalu simpan file .TXT untuk flashdisk mesin CNC MiniCut. Lubang dipotong dulu, kontur luar terakhir, dengan kompensasi kerf G41.</p>
+  </header>
+
+  <div class="grid">
+    <aside class="side">
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Pilih file NC1">
+        <b>Seret file .nc1 ke sini</b>
+        <small>Boleh beberapa file sekaligus. File diproses di browser ini, tidak dikirim ke mana pun.</small><br>
+        <button class="btn primary" id="pick" type="button">Pilih file</button>
+        <input type="file" id="file" accept=".nc1" multiple hidden>
+      </div>
+
+      <form class="panel settings" id="settings" autocomplete="off">
+        <h2>Pengaturan</h2>
+        <div class="fields">
+          <div class="f"><label for="s_mode">Koordinat</label>
+            <select id="s_mode" name="mode"><option value="G91">G91 relatif</option><option value="G90">G90 absolut</option></select></div>
+          <div class="f"><label for="s_kerf">Kompensasi kerf</label>
+            <select id="s_kerf" name="kerf"><option value="G41">G41 (Kerf mesin)</option><option value="NONE">Tanpa</option></select></div>
+          <div class="f"><label for="s_holes">Lubang</label>
+            <select id="s_holes" name="holes"><option value="cut">Ikut dipotong</option><option value="skip">Lewati (dibor)</option></select></div>
+          <div class="f"><label for="s_min">Lubang min. Ø <span class="unit">mm</span></label>
+            <input id="s_min" name="min_hole_diameter" type="number" min="0" step="1"></div>
+          <div class="f full"><label for="s_start">Titik mulai potong (torch menyala)</label>
+            <select id="s_start" name="start_point"><option value="corner">Di sudut / ujung garis</option><option value="edge">Di tengah sisi terpanjang</option></select></div>
+          <div class="f"><label for="s_lio">Lead-in luar <span class="unit">mm</span></label>
+            <input id="s_lio" name="lead_in_outer" type="number" min="0" step="0.5"></div>
+          <div class="f"><label for="s_lo">Lead-out <span class="unit">mm</span></label>
+            <input id="s_lo" name="lead_out" type="number" min="0" step="0.5"></div>
+          <div class="f"><label for="s_ox">Offset X <span class="unit">mm</span></label>
+            <input id="s_ox" name="offset_x" type="number" step="1"></div>
+          <div class="f"><label for="s_oy">Offset Y <span class="unit">mm</span></label>
+            <input id="s_oy" name="offset_y" type="number" step="1"></div>
+          <div class="f"><label for="s_ext">Ekstensi file</label>
+            <select id="s_ext" name="ext"><option value=".TXT">.TXT</option><option value=".CNC">.CNC</option></select></div>
+          <div class="f"><label for="s_home">Akhir program</label>
+            <select id="s_home" name="return_home"><option value="yes">Kembali ke nol</option><option value="no">Diam di tempat</option></select></div>
+          <div class="f full"><label for="s_ign">Layer diabaikan</label>
+            <input id="s_ign" name="ignore_layers" type="text"></div>
+          <div class="f full"><label for="s_only">Hanya layer ini <span class="unit">(kosong = semua)</span></label>
+            <input id="s_only" name="cut_layers" type="text" placeholder="mis. CUT,27"></div>
+          <div class="f"><label for="s_speed">Kecepatan potong <span class="unit">mm/mnt</span></label>
+            <input id="s_speed" name="cut_speed" type="number" min="1" step="10"></div>
+        </div>
+        <button class="reset" id="reset" type="button">Kembalikan ke default</button>
+      </form>
+
+      <div class="panel howto">
+        <h2>Di mesin</h2>
+        <ol>
+          <li>Salin .TXT ke root flashdisk, colok ke mesin.</li>
+          <li><kbd>F2 Files</kbd> → <kbd>F2 UDisk</kbd> → pilih file → <kbd>F6</kbd> simpan ke internal.</li>
+          <li><kbd>F1 DiskFile</kbd> → pilih → <kbd>F7 Preview</kbd> → <kbd>F8 OK</kbd>.</li>
+          <li>Geser torch dengan tombol panah ke pojok kiri bawah plat. Posisi ini menjadi titik nol (X0 Y0), karena program diawali <kbd>G92X0Y0</kbd>.</li>
+          <li><kbd>Space</kbd> → <kbd>F3 Frame</kbd> dan dry run tanpa api, lalu Start.</li>
+        </ol>
+        <p class="note" style="margin:10px 0 0">Part diletakkan sejauh Offset X / Y dari titik nol (default 15 mm), jadi torch harus berada di dalam plat minimal sejauh itu dari tepi.</p>
+      </div>
+    </aside>
+
+    <main class="results" id="results" aria-live="polite"></main>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script type="text/plain" id="sample">(UJI PL14 UJI)
+G92X0Y0
+G21
+G91
+G00X75.0Y75.0
+G41
+M07
+G01X-12.0Y0.0
+G03X24.0Y0.0I12.0J0.0
+G03X-24.0Y0.0I-12.0J0.0
+G01X5.0Y0.0
+M08
+G40
+G00X47.0Y96.0
+G41
+M07
+G01X0.0Y-6.0
+G01X60.0Y0.0
+G03X0.0Y40.0I0.0J20.0
+G01X-60.0Y0.0
+G03X0.0Y-40.0I0.0J-20.0
+G01X0.0Y5.0
+M08
+G40
+G00X-105.657Y-160.657
+G41
+M07
+G01X5.657Y5.657
+G01X0.0Y200.0
+G03X320.0Y0.0I160.0J242.667
+G01X0.0Y-160.0
+G02X-20.0Y-40.0I-31.0J-9.5
+G01X-300.0Y0.0
+G01X-3.536Y-3.536
+M08
+G40
+G00X203.536Y75.536
+G41
+M07
+G01X0.0Y8.0
+G02X-40.0Y40.0I0.0J40.0
+G02X80.0Y0.0I40.0J0.0
+G02X-40.0Y-40.0I-40.0J0.0
+G01X0.0Y-5.0
+M08
+G40
+G00X208.66Y-20.0
+G41
+M07
+G01X-6.0Y0.0
+G03X12.0Y0.0I6.0J0.0
+G03X-12.0Y0.0I-6.0J0.0
+G01X3.0Y0.0
+M08
+G40
+G00X-27.048Y0.731
+G41
+M07
+G01X7.728Y-2.071
+G01X34.641Y20.0
+G01X10.0Y-17.32
+G01X-34.641Y-20.0
+G01X-10.0Y17.32
+G01X-4.83Y1.294
+M08
+G40
+G00X-396.51Y-69.954
+M02</script>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="core.js"></script>
+<script src="nc1.js"></script>
+<script src="sim3d.js"></script>
+<script>
+(function () {
+  'use strict';
+  const D = window.Dwg2Cnc;
+  const $ = (id) => document.getElementById(id);
+  const KEY = 'nc1tocnc.settings';
+  const DEF = Object.assign({}, D.DEFAULTS, { return_home: 'yes' });
+  const FIELDS = ['mode', 'kerf', 'holes', 'start_point','min_hole_diameter', 'lead_in_outer', 'lead_out', 'offset_x', 'offset_y', 'ext', 'return_home', 'ignore_layers', 'cut_layers', 'cut_speed'];
+  const NUMS = ['min_hole_diameter', 'lead_in_outer', 'lead_out', 'offset_x', 'offset_y', 'cut_speed'];
+  const form = $('settings');
+  const results = $('results');
+  let files = [];
+  let downloads = null;
+
+  // ---------- settings (remembered per browser)
+  function loadSettings() {
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
+    const s = Object.assign({}, DEF, saved);
+    for (const k of FIELDS) {
+      const f = form.elements[k]; if (!f) continue;
+      let v = s[k];
+      if (k === 'return_home') v = (v === true || /^(yes|true|1|ya)$/i.test(String(v))) ? 'yes' : 'no';
+      f.value = String(v);
+    }
+  }
+  function readSettings() {
+    const s = {};
+    for (const k of FIELDS) { const f = form.elements[k]; if (f) s[k] = f.value; }
+    for (const k of NUMS) { const n = parseFloat(s[k]); s[k] = Number.isFinite(n) ? n : DEF[k]; }
+    return s;
+  }
+  function saveSettings() { try { localStorage.setItem(KEY, JSON.stringify(readSettings())); } catch (e) { /* optional */ } }
+  let rerunTimer = null;
+  form.addEventListener('input', () => { saveSettings(); clearTimeout(rerunTimer); rerunTimer = setTimeout(rerunAll, 350); });
+  form.addEventListener('submit', (e) => e.preventDefault());
+  $('reset').addEventListener('click', () => { try { localStorage.removeItem(KEY); } catch (e) {} loadSettings(); rerunAll(); });
+
+  // ---------- NC1 reader
+  async function readFile(file) {
+    return { name: file.name.replace(/\.[^.]+$/, ''), read: D.primsFromNc1(await file.text()) };
+  }
+
+  // ---------- helpers
+  const fmt = (n, d = 0) => n.toLocaleString('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d });
+  function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200); }
+  const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  function arcPoints(p0, p1, c, ccw) {
+    const r = Math.hypot(p0[0] - c[0], p0[1] - c[1]);
+    const a0 = Math.atan2(p0[1] - c[1], p0[0] - c[0]);
+    const a1 = Math.atan2(p1[1] - c[1], p1[0] - c[0]);
+    let sw = ccw ? a1 - a0 : a0 - a1;
+    sw = ((sw % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); if (sw < 1e-9) sw = 2 * Math.PI;
+    if (!ccw) sw = -sw;
+    const n = Math.max(6, Math.ceil(Math.abs(sw) / (Math.PI / 36)));
+    const pts = [];
+    for (let i = 1; i <= n; i++) { const a = a0 + sw * i / n; pts.push([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]); }
+    pts[pts.length - 1] = p1; return pts;
+  }
+  function summary(moves) {
+    let cut = 0, pierces = 0, minx = 0, miny = 0, maxx = 0, maxy = 0, pminx = Infinity, pminy = Infinity;
+    moves.forEach((m, i) => {
+      const pts = m.code >= 2 ? arcPoints(m.p0, m.p1, m.c, m.code === 3) : [m.p1];
+      let prev = m.p0;
+      for (const p of pts) {
+        if (m.code !== 0) { cut += Math.hypot(p[0] - prev[0], p[1] - prev[1]); pminx = Math.min(pminx, p[0]); pminy = Math.min(pminy, p[1]); }
+        minx = Math.min(minx, p[0]); miny = Math.min(miny, p[1]); maxx = Math.max(maxx, p[0]); maxy = Math.max(maxy, p[1]);
+        prev = p;
+      }
+      if (m.code === 0 && moves[i + 1] && moves[i + 1].code !== 0) pierces++;
+    });
+    return { cut, pierces, box: [minx, miny, maxx, maxy] };
+  }
+
+  function draw(canvas, moves, box) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = canvas.clientWidth || 600, h = Math.round(w * 3 / 4);
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const pad = 20;
+    const bw = Math.max(1, box[2] - box[0]), bh = Math.max(1, box[3] - box[1]);
+    const s = Math.min((w - 2 * pad) / bw, (h - 2 * pad) / bh);
+    const ox = pad + ((w - 2 * pad) - bw * s) / 2, oy = pad + ((h - 2 * pad) - bh * s) / 2;
+    const X = (x) => ox + (x - box[0]) * s, Y = (y) => h - (oy + (y - box[1]) * s);
+    const cCut = cssVar('--cut'), cRapid = cssVar('--rapid'), cPierce = cssVar('--pierce'), cInk = cssVar('--ink');
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.setLineDash([4, 4]); ctx.strokeStyle = cRapid; ctx.lineWidth = 0.8; ctx.beginPath();
+    for (const m of moves) if (m.code === 0) { ctx.moveTo(X(m.p0[0]), Y(m.p0[1])); ctx.lineTo(X(m.p1[0]), Y(m.p1[1])); }
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = cCut; ctx.lineWidth = 1.4; ctx.beginPath();
+    for (const m of moves) {
+      if (m.code === 0) continue;
+      ctx.moveTo(X(m.p0[0]), Y(m.p0[1]));
+      const pts = m.code === 1 ? [m.p1] : arcPoints(m.p0, m.p1, m.c, m.code === 3);
+      for (const p of pts) ctx.lineTo(X(p[0]), Y(p[1]));
+    }
+    ctx.stroke();
+    ctx.fillStyle = cPierce;
+    moves.forEach((m, i) => { if (m.code === 0 && moves[i + 1] && moves[i + 1].code !== 0) { ctx.beginPath(); ctx.arc(X(m.p1[0]), Y(m.p1[1]), 2.4, 0, 2 * Math.PI); ctx.fill(); } });
+    ctx.strokeStyle = cInk; ctx.lineWidth = 1.5; const x0 = X(0), y0 = Y(0);
+    ctx.beginPath(); ctx.moveTo(x0 - 7, y0); ctx.lineTo(x0 + 7, y0); ctx.moveTo(x0, y0 - 7); ctx.lineTo(x0, y0 + 7); ctx.stroke();
+    ctx.fillStyle = cInk; ctx.font = '11px ' + cssVar('--font-body'); ctx.fillText('titik nol', x0 + 6, y0 - 6);
+  }
+
+  function codeHtml(lines) {
+    const max = 400;
+    const shown = lines.slice(0, max).map((l, i) => '<span class="ln">' + (i + 1) + '</span>' + esc(l)).join('\n');
+    return shown + (lines.length > max ? '\n<span class="ln"></span>… ' + (lines.length - max) + ' baris lagi (lengkap di file)' : '');
+  }
+  function selectPre(pre) { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+
+  // ---------- result card
+  function renderCard(card, data) {
+    const { name, text, lines, moves, errors, stats, sample } = data;
+    const sum = summary(moves);
+    const speed = readSettings().cut_speed || 360;
+    const ok = !errors.length;
+    card.innerHTML = '';
+    const head = el('div', 'card-head');
+    head.appendChild(el('h3', null, esc(name)));
+    if (sample) head.appendChild(el('span', 'tag sample', 'Contoh'));
+    head.appendChild(el('span', 'tag ' + (ok ? 'ok' : 'bad'), ok ? 'Cek simulasi OK' : 'Cek simulasi gagal'));
+    card.appendChild(head);
+
+    const meta = [];
+    if (sample) meta.push('Contoh hasil dari gambar uji dengan pengaturan default. Upload gambar Anda untuk mulai.');
+    if (stats) {
+      if (stats.texts && stats.texts.length) meta.push('Teks di gambar: ' + esc(stats.texts.join(' | ')));
+      meta.push('Layer dipotong: ' + esc((stats.layers || []).join(', ') || '-') + (stats.ignored && stats.ignored.length ? ' · diabaikan: ' + esc(stats.ignored.join(', ')) : ''));
+      if (stats.open) meta.push(stats.open + ' garis terbuka diabaikan (tanda center / garis bantu)');
+    }
+    card.appendChild(el('p', 'meta', meta.join('<br>')));
+
+    const size = stats && stats.size ? stats.size : [sum.box[2] - 15, sum.box[3] - 15];
+    const holes = stats ? stats.holes : Math.max(0, sum.pierces - 1);
+    const dl = el('dl', 'stats');
+    const items = [
+      ['Ukuran part', fmt(size[0]) + ' × ' + fmt(size[1]) + ' mm'],
+      ['Lubang', fmt(holes) + (stats && stats.skippedHoles ? ' (' + stats.skippedHoles + ' dilewati)' : '')],
+      ['Titik tembus', fmt(sum.pierces)],
+      ['Panjang potong', fmt(sum.cut / 1000, 2) + ' m'],
+      ['Estimasi potong', '±' + fmt(sum.cut / speed) + ' menit'],
+      ['Isi file', fmt(lines.length) + ' baris'],
+    ];
+    for (const [k, v] of items) { const d = el('div', 'stat'); d.appendChild(el('dt', null, k)); d.appendChild(el('dd', null, v)); dl.appendChild(d); }
+    card.appendChild(dl);
+
+    const body = el('div', 'body2');
+    const cbox = el('div', 'canvas-box');
+    const canvas = el('canvas'); canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', 'Preview jalur potong ' + name);
+    cbox.appendChild(canvas);
+    cbox.appendChild(el('div', 'legend', '<span><i class="c"></i>potong</span><span><i class="r"></i>gerak cepat (torch mati)</span><span><i class="p"></i>titik tembus</span>'));
+    body.appendChild(cbox);
+    const code = el('div', 'code');
+    const pre = el('pre'); pre.innerHTML = codeHtml(lines); pre.tabIndex = 0; pre.setAttribute('aria-label', 'Isi G-code');
+    code.appendChild(pre);
+    body.appendChild(code);
+    card.appendChild(body);
+
+    if (errors.length) card.appendChild(el('div', 'warn', 'Masalah: ' + esc(errors.slice(0, 4).join('; '))));
+    if (lines.length > 10000 || text.length > 1048576) card.appendChild(el('div', 'warn', 'File melebihi 10.000 baris / 1 MB (batas F2100B). Pecah gambarnya menjadi beberapa file.'));
+
+    const ext = readSettings().ext || '.TXT';
+    const fname = name + ext;
+    const acts = el('div', 'actions');
+    const bSave = el('button', 'btn primary', 'Simpan ' + esc(fname)); bSave.type = 'button';
+    const bCopy = el('button', 'btn', 'Salin G-code'); bCopy.type = 'button';
+    const note = el('span', 'note');
+    const bSim = el('button', 'btn', 'Simulasi 3D'); bSim.type = 'button';
+    acts.append(bSave, bCopy, bSim, note);
+    const simData = { name, lines, moves, thickness: guessThickness(stats ? stats.texts : (sample ? ['PL14'] : [])) };
+    card._simData = simData;
+    bSim.addEventListener('click', () => openSim(simData, { autoplay: true, scroll: true }));
+    card.appendChild(acts);
+
+    bSave.addEventListener('click', async () => {
+      if (!downloads && !window.claude) {
+        // running outside claude.ai (offline copy on a PC): ordinary browser download
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+        a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        toast('Tersimpan: ' + fname);
+        return;
+      }
+      if (!downloads) { note.textContent = 'Simpan file tidak tersedia di tampilan ini. Klik "Salin G-code", tempel ke Notepad, lalu simpan sebagai ' + fname + '.'; return; }
+      // .CNC is not on the download allowlist, so it is saved as .TXT (the machine reads both)
+      const saveName = /\.txt$/i.test(fname) ? fname : name + '.TXT';
+      try {
+        await downloads.save({ filename: saveName, data: text });
+        toast('Tersimpan: ' + saveName);
+        note.textContent = saveName !== fname ? 'Disimpan sebagai .TXT. Ganti ekstensinya ke .CNC bila perlu.' : '';
+      } catch (e) {
+        if (e && e.code === 'declined') return;
+        note.textContent = 'Tidak tersimpan (' + ((e && e.code) || 'error') + '). Pakai "Salin G-code".';
+      }
+    });
+    bCopy.addEventListener('click', () => {
+      const fallback = () => { selectPre(pre); note.textContent = 'Teks sudah terpilih. Tekan Ctrl+C untuk menyalin.'; };
+      try { navigator.clipboard.writeText(text).then(() => toast('G-code tersalin (' + lines.length + ' baris)'), fallback); } catch (e) { fallback(); }
+    });
+    const box = [Math.min(0, sum.box[0]), Math.min(0, sum.box[1]), sum.box[2], sum.box[3]];
+    card._redraw = () => draw(canvas, moves, box);
+    requestAnimationFrame(card._redraw);
+  }
+
+  async function process(entry) {
+    const { file, card } = entry;
+    if (!entry.read) {
+      card.innerHTML = '';
+      const head = el('div', 'card-head');
+      head.appendChild(el('h3', null, esc(file.name)));
+      head.appendChild(el('span', 'tag busy', 'Memproses…'));
+      card.appendChild(head);
+    }
+    try {
+      if (!entry.read) entry.read = await readFile(file);
+      const r = D.convertPrims(entry.read.read, readSettings(), entry.read.name);
+      renderCard(card, { name: entry.read.name, text: r.text, lines: r.lines, moves: r.moves, errors: r.errors, stats: r.stats });
+      if (entry.autoSim) { entry.autoSim = false; openSim(card._simData, { autoplay: true, scroll: false }); }
+      else if (simName === entry.read.name) openSim(card._simData, { autoplay: false, scroll: false, keepTime: true });
+    } catch (e) {
+      card.innerHTML = '';
+      const h = el('div', 'card-head'); h.appendChild(el('h3', null, esc(file.name))); h.appendChild(el('span', 'tag bad', 'Gagal'));
+      card.appendChild(h);
+      card.appendChild(el('p', 'meta', esc(e && e.message ? e.message : String(e))));
+    }
+  }
+  function rerunAll() { if (!files.length) { showSample(); return; } for (const f of files) process(f); }
+  function addFiles(list) {
+    const arr = [...list].filter(f => /\.nc1$/i.test(f.name));
+    if (!arr.length) { toast('Pilih file .nc1'); return; }
+    if (!files.length) { results.innerHTML = ''; simSection = null; simName = null; }
+    arr.forEach((file, i) => {
+      const card = el('section', 'panel card');
+      if (simSection && simSection.isConnected) simSection.after(card); else results.prepend(card);
+      const entry = { file, card, read: null, autoSim: i === arr.length - 1 };
+      files.unshift(entry);
+      process(entry);
+    });
+  }
+  function showSample() {
+    results.innerHTML = ''; simSection = null; simName = null;
+    const card = el('section', 'panel card'); results.appendChild(card);
+    const lines = $('sample').textContent.trim().split(/\r?\n/);
+    const text = lines.join('\r\n') + '\r\n';
+    const sim = D.simulate(lines);
+    renderCard(card, { name: 'uji', text, lines, moves: sim.moves, errors: sim.errors, stats: null, sample: true });
+    openSim(card._simData, { autoplay: true, scroll: false });
+  }
+
+  // ---------- 3D cutting simulation (one at a time, above the results)
+  let simSection = null, simName = null;
+  function guessThickness(texts) {
+    const m = (texts || []).join(' ').match(/PL\s*(\d+(?:[.,]\d+)?)/i);
+    return m ? parseFloat(m[1].replace(',', '.')) : 14;
+  }
+  function openSim(data, opt) {
+    if (!data || !window.Sim3D) return;
+    if (!simSection || !simSection.isConnected) {
+      simSection = el('section', 'panel simcard');
+      simSection.innerHTML = '<div class="card-head"><h3></h3><button type="button" class="btn ghost" id="simClose">Tutup simulasi</button></div><div class="simhost"></div>';
+      results.prepend(simSection);
+      simSection.querySelector('#simClose').addEventListener('click', () => { window.Sim3D.close(); simSection.remove(); simSection = null; simName = null; });
+    } else results.prepend(simSection);
+    simName = data.name;
+    simSection.querySelector('h3').textContent = 'Simulasi 3D · ' + data.name;
+    const s = readSettings();
+    window.Sim3D.open(simSection.querySelector('.simhost'), Object.assign({}, data, { cutSpeed: s.cut_speed, autoplay: opt.autoplay }));
+    if (opt.scroll) simSection.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  }
+
+  // ---------- input wiring
+  const drop = $('drop'), input = $('file');
+  $('pick').addEventListener('click', (e) => { e.stopPropagation(); input.click(); });
+  drop.addEventListener('click', () => input.click());
+  drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+  input.addEventListener('change', () => { addFiles(input.files); input.value = ''; });
+  ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => results.querySelectorAll('.card').forEach(c => c._redraw && c._redraw()), 150); });
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => results.querySelectorAll('.card').forEach(c => c._redraw && c._redraw())); } catch (e) {}
+
+  loadSettings();
+  showSample();
+  if (window.claude && window.claude.use) window.claude.use('downloads').then(d => { downloads = d; }, () => {});
+})();
+</script>
+
+</body></html>
