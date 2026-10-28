@@ -74,7 +74,7 @@ def main():
 
             # DWG file ini dibaca balik: tiap sudut part harus ada di G-code file yang SAMA, tanpa geser
             back = os.path.join(td, stem + "_back.dxf")
-            subprocess.run([os.path.join(dwgwrite.DLL_DIR, "dwg2dxf.exe"), "-y", "-o", back, dwg], capture_output=True)
+            subprocess.run([dwgwrite.dwg2dxf(), "-y", "-o", back, dwg], capture_output=True)
             msp = ezdxf.readfile(back).modelspace()
             gpts = gcode_points(z.read(f["file"]).decode("ascii"))
             for e in msp.query('LWPOLYLINE[layer=="PART"]'):

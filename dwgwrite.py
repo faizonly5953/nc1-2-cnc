@@ -15,6 +15,7 @@ layout = {"plates": [{"x0", "y0", "w", "h", "name",
 """
 import glob
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -127,9 +128,20 @@ def expected(layout):
     return cnt, ext
 
 
+def dwg2dxf():
+    """Pembaca DWG LibreDWG: exe bawaan di Windows, `dwg2dxf` dari sistem di Linux/macOS."""
+    local = os.path.join(DLL_DIR, "dwg2dxf.exe")
+    if os.name == "nt" and os.path.isfile(local):
+        return local
+    exe = shutil.which("dwg2dxf")
+    if not exe:
+        raise RuntimeError("dwg2dxf (LibreDWG) tidak ditemukan untuk cek DWG. Linux: pasang LibreDWG yang menyediakan perintah dwg2dxf.")
+    return exe
+
+
 def readback(path):
     """Baca balik DWG dengan dwg2dxf + ezdxf. Return (jumlah per (tipe, layer), semua polyline tertutup, batas PART)."""
-    exe = os.path.join(DLL_DIR, "dwg2dxf.exe")
+    exe = dwg2dxf()
     with tempfile.TemporaryDirectory() as td:
         out = os.path.join(td, "back.dxf")
         subprocess.run([exe, "-y", "-o", out, path], capture_output=True, stdin=subprocess.DEVNULL)
