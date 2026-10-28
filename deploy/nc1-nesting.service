@@ -1,0 +1,22 @@
+# systemd: server NC1 Auto Nesting + auto-update dari GitHub.
+#   sudo cp deploy/nc1-nesting.service /etc/systemd/system/
+#   (sesuaikan User dan path /opt/nc1-2-cnc di bawah)
+#   sudo systemctl daemon-reload && sudo systemctl enable --now nc1-nesting
+#   journalctl -u nc1-nesting -f        # lihat log cek update
+[Unit]
+Description=NC1 Auto Nesting (server + auto update dari GitHub)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=nc1
+WorkingDirectory=/opt/nc1-2-cnc
+Environment=NEST_HOST=0.0.0.0
+Environment=NEST_PORT=8768
+Environment=TZ=Asia/Jakarta
+ExecStart=/opt/nc1-2-cnc/deploy/update.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

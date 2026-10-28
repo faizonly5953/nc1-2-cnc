@@ -70,6 +70,27 @@ Pengaturan (mode, kerf, lead-in, offset, dll.) ada di `dwg2cnc.ini`.
 **Di mesin**: salin `.TXT` ke flashdisk, letakkan torch di pojok kiri bawah plat, dan **selalu dry-run
 (`Space > F3 Frame`, tanpa api) sebelum memotong**.
 
+## Hosting di VPS (Linux) dengan auto-update
+
+`deploy/update.sh` menjalankan server dan berkala mengecek GitHub. Kalau ada commit baru di `main`:
+`git pull` (fast-forward) → restart server → cek server hidup. Kalau server gagal hidup, VPS kembali ke commit
+sebelumnya dan commit yang gagal itu dilewati sampai ada commit yang lebih baru.
+
+Jadwal cek (zona waktu `Asia/Jakarta`): **Senin–Jumat 08:00–17:00 tiap 5 menit**, di luar itu tiap 1 jam
+(tetap bangun tepat jam 08:00). Bisa diubah lewat `WORK_DAYS`, `WORK_START`, `WORK_END`, `FAST`, `SLOW`.
+
+```bash
+sudo git clone https://github.com/faizonly5953/nc1-2-cnc.git /opt/nc1-2-cnc
+sudo chown -R nc1: /opt/nc1-2-cnc          # user yang menjalankan service
+sudo cp /opt/nc1-2-cnc/deploy/nc1-nesting.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now nc1-nesting
+journalctl -u nc1-nesting -f               # log cek update
+```
+
+Server memakai `NEST_HOST=0.0.0.0`, port `8768`. Halaman ini **tanpa login**: taruh di balik reverse proxy dengan
+password/HTTPS atau batasi lewat firewall. Jangan ubah file di folder VPS secara manual, karena update hanya jalan
+kalau bisa fast-forward. Ekspor DWG di VPS butuh ODA File Converter (headless: lewat `xvfb`).
+
 ## Struktur
 
 | File | Isi |
@@ -83,6 +104,7 @@ Pengaturan (mode, kerf, lead-in, offset, dll.) ada di `dwg2cnc.ini`.
 | `dwgwrite.py` | Layout → DXF → DWG (AutoCAD/ODA) + cek baca-balik |
 | `nc1tocnc.py`, `dwg2cnc.py` | Konversi lewat command line |
 | `BUKA-NESTING.bat`, `buka-nesting.sh` | Launcher Windows / Linux |
+| `deploy/update.sh`, `deploy/nc1-nesting.service` | Auto-update dari GitHub + restart server (VPS Linux) |
 | `libredwg/` | LibreDWG `dwg2dxf` untuk membaca DWG di Windows (GPLv3) |
 
 Mesin lain bisa ditambahkan sebagai entri baru di `POSTS` pada `web/nest.js`.

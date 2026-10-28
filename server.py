@@ -24,6 +24,7 @@ import dwgwrite
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 PORT = int(os.environ.get("NEST_PORT", "8768"))
+HOST = os.environ.get("NEST_HOST", "127.0.0.1")   # VPS: 0.0.0.0 (atau tetap lokal di balik reverse proxy)
 MAX_BODY = 64 * 1024 * 1024
 DWG_LOCK = threading.Lock()   # satu konversi AutoCAD sekaligus
 SAFE = re.compile(r"^[A-Za-z0-9_.\-]{1,64}$")
@@ -99,8 +100,8 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    print(f"NC1 Auto Nesting berjalan di http://127.0.0.1:{PORT}/nest.html  (tutup jendela ini untuk berhenti)")
+    srv = ThreadingHTTPServer((HOST, PORT), Handler)
+    print(f"NC1 Auto Nesting berjalan di http://{HOST}:{PORT}/nest.html  (tutup jendela ini untuk berhenti)", flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
